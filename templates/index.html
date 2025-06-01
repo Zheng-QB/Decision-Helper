@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>终极决策助手 Web</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <div class="container py-4">
+    <h1 class="text-center mb-4">🎯 终极决策助手 Web 版</h1>
+
+    <div class="mb-3">
+      <textarea id="options" class="form-control" rows="6" placeholder="每行一个选项，支持 # 注释"></textarea>
+    </div>
+
+    <div class="mb-3 d-flex align-items-center gap-2">
+      <input type="file" id="fileInput" accept=".txt" class="form-control" style="max-width: 300px;">
+      <button class="btn btn-outline-primary" onclick="uploadTxt()">导入 .txt 文件</button>
+    </div>
+
+    <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
+      <button class="btn btn-primary me-md-2" onclick="doRandom()">开始随机</button>
+      <button class="btn btn-secondary me-md-2" onclick="showCustom()">自定义随机</button>
+      <button class="btn btn-outline-success" onclick="clearHistory()">清除历史</button>
+      <a href="/export" class="btn btn-outline-dark" target="_blank">导出记录</a>
+    </div>
+
+    <div class="alert alert-info text-center" id="result">请输入选项后点击按钮</div>
+
+    <h5>📜 历史记录：</h5>
+    <div class="border p-3 bg-white" style="max-height: 300px; overflow-y: auto;">
+      {% for line in history[::-1] %}
+        <div class="border-bottom py-1 small">{{ line }}</div>
+      {% else %}
+        <div class="text-muted">暂无记录</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 自定义次数弹窗 -->
+  <div class="modal" tabindex="-1" id="customModal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">自定义随机次数</h5>
+          <button type="button" class="btn-close" onclick="hideCustom()"></button>
+        </div>
+        <div class="modal-body">
+          <input id="customTimes" type="number" class="form-control" placeholder="请输入次数" min="1">
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="doCustom()">确定</button>
+          <button class="btn btn-secondary" onclick="hideCustom()">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const modal = new bootstrap.Modal(document.getElementById('customModal'));
+
+    function showCustom() { modal.show(); }
+    function hideCustom() { modal.hide(); }
+
+    async function doRandom() {
+      const options = document.getElementById('options').value;
+      const res = await fetch('/random', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'options=' + encodeURIComponent(options)
+      });
+      const json = await res.json();
+      document.getElementById('result').textContent = json.result || json.error;
+      if (json.error) alert(json.error);
+    }
+
+    async function doCustom() {
+      const options = document.getElementById('options').value;
+      const times = document.getElementById('customTimes').value;
+      hideCustom();
+      const res = await fetch('/custom', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'options=' + encodeURIComponent(options) + '&times=' + encodeURIComponent(times)
+      });
+      const json = await res.json();
+      document.getElementById('result').textContent = json.result || json.error;
+      if (json.error) alert(json.error);
+    }
+
+    async function clearHistory() {
+      if (!confirm("确定清除所有历史记录？")) return;
+      const res = await fetch('/clear', { method: 'POST' });
+      if (res.ok) location.reload();
+    }
+
+    async function uploadTxt() {
+      const fileInput = document.getElementById('fileInput');
+      if (!fileInput.files.length) return alert("请先选择一个 .txt 文件");
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      const res = await fetch('/upload', { method: 'POST', body: formData });
+      const json = await res.json();
+      if (json.content) {
+        document.getElementById('options').value = json.content;
+      } else {
+        alert(json.error || '上传失败');
+      }
+    }
+  </script>
+</body>
+</html>
