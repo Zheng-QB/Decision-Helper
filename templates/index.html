@@ -99,15 +99,16 @@
     async function uploadTxt() {
       const fileInput = document.getElementById('fileInput');
       if (!fileInput.files.length) return alert("请先选择一个 .txt 文件");
-      const formData = new FormData();
-      formData.append("file", fileInput.files[0]);
-      const res = await fetch('/upload', { method: 'POST', body: formData });
-      const json = await res.json();
-      if (json.content) {
-        document.getElementById('options').value = json.content;
-      } else {
-        alert(json.error || '上传失败');
-      }
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('options').value = e.target.result;
+      };
+      reader.onerror = function() {
+        alert("读取文件失败");
+      };
+      reader.readAsText(file, 'UTF-8');
     }
   </script>
 </body>
