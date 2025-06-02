@@ -42,19 +42,27 @@ def do_custom():
     raw = request.form['options']
     times = int(request.form['times'])
     options = [line.split('#')[0].strip() for line in raw.strip().splitlines() if line.strip() and not line.startswith('#')]
+
     if len(options) < 2 or times < 1:
         return jsonify({'error': '请输入有效选项和次数'})
+
     result_count = {opt: 0 for opt in options}
     for _ in range(times):
         result = random.choice(options)
         result_count[result] += 1
+
     max_count = max(result_count.values())
     most_common = [k for k, v in result_count.items() if v == max_count]
-    result_text = f"共随机 {times} 次，出现最多的是：\n" + "\n".join(f"{k}: {max_count} 次" for k in most_common)
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    data['history'].append(f"[{ts}] 自定义随机 {times} 次，最多：{', '.join(most_common)} ({max_count}次)")
+
+    display_text = f"共随机 {times} 次，出现最多的是：\n" + "\n".join(f"{k}: {max_count} 次" for k in most_common)
+
+    full_summary = ", ".join(f"{k}: {v}次" for k, v in result_count.items())
+    log = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 自定义随机 {times} 次：{full_summary} → 最多：{', '.join(most_common)} ({max_count}次)"
+
+    data['history'].append(log)
     save_data(data)
-    return jsonify({'result': result_text})
+
+    return jsonify({'display': display_text})
 
 @app.route('/clear', methods=['POST'])
 def clear_history():
