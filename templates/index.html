@@ -86,7 +86,7 @@
         body: 'options=' + encodeURIComponent(options) + '&times=' + encodeURIComponent(times)
       });
       const json = await res.json();
-      document.getElementById('result').textContent = json.result || json.error;
+      document.getElementById('result').textContent = json.display || json.error;
       if (json.error) alert(json.error);
     }
 
