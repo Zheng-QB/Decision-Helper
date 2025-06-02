@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>终极决策助手 Web</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-light">
   <div class="container py-4">
@@ -15,20 +16,23 @@
     </div>
 
     <div class="mb-3 d-flex align-items-center gap-2">
-      <input type="file" id="fileInput" accept=".txt" class="form-control" style="max-width: 300px;">
-      <button class="btn btn-outline-primary" onclick="uploadTxt()">导入 .txt 文件</button>
+      <input type="file" id="fileInput" accept=".txt,.doc,.docx" class="form-control" style="max-width: 300px;">
+      <button class="btn btn-outline-primary" onclick="uploadFile()">导入文件</button>
     </div>
 
     <div class="d-grid gap-2 d-md-flex justify-content-md-center mb-3">
       <button class="btn btn-primary me-md-2" onclick="doRandom()">开始随机</button>
       <button class="btn btn-secondary me-md-2" onclick="showCustom()">自定义随机</button>
       <button class="btn btn-outline-success" onclick="clearHistory()">清除历史</button>
-      <a href="/export" class="btn btn-outline-dark" target="_blank">导出记录</a>
+      <a href="/export" class="btn btn-outline-dark" target="_blank">导出文本</a>
+      <a href="/export_excel" class="btn btn-outline-warning" target="_blank">导出 Excel</a>
     </div>
 
     <div class="alert alert-info text-center" id="result">请输入选项后点击按钮</div>
 
-    <h5>📜 历史记录：</h5>
+    <canvas id="resultChart" height="200"></canvas>
+
+    <h5 class="mt-4">📜 历史记录：</h5>
     <div class="border p-3 bg-white" style="max-height: 300px; overflow-y: auto;">
       {% for line in history[::-1] %}
         <div class="border-bottom py-1 small">{{ line }}</div>
@@ -60,6 +64,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const modal = new bootstrap.Modal(document.getElementById('customModal'));
+    let chart;
 
     function showCustom() { modal.show(); }
     function hideCustom() { modal.hide(); }
@@ -87,7 +92,28 @@
       });
       const json = await res.json();
       document.getElementById('result').textContent = json.display || json.error;
+      if (json.labels && json.values) renderChart(json.labels, json.values);
       if (json.error) alert(json.error);
+    }
+
+    function renderChart(labels, values) {
+      const ctx = document.getElementById('resultChart').getContext('2d');
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '出现次数',
+            data: values,
+            backgroundColor: '#0d6efd'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } }
+        }
+      });
     }
 
     async function clearHistory() {
@@ -96,19 +122,20 @@
       if (res.ok) location.reload();
     }
 
-    async function uploadTxt() {
+    async function uploadFile() {
       const fileInput = document.getElementById('fileInput');
-      if (!fileInput.files.length) return alert("请先选择一个 .txt 文件");
-
+      if (!fileInput.files.length) return alert("请选择一个文件");
       const file = fileInput.files[0];
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        document.getElementById('options').value = e.target.result;
-      };
-      reader.onerror = function() {
-        alert("读取文件失败");
-      };
-      reader.readAsText(file, 'UTF-8');
+
+      if (file.name.endsWith('.txt')) {
+        const reader = new FileReader();
+        reader.onload = e => document.getElementById('options').value = e.target.result;
+        reader.readAsText(file, 'UTF-8');
+      } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+        alert("暂不支持解析 Word 文件内容，建议复制粘贴内容后使用。");
+      } else {
+        alert("仅支持 .txt 或 Word 文档格式");
+      }
     }
   </script>
 </body>
