@@ -1,30 +1,21 @@
 # app.py - Web 版本终极决策助手 (Flask 后端)
-from flask import Flask, render_template, request, redirect, jsonify, send_file
+from flask import Flask, render_template, request, redirect, jsonify, send_file, session
 import json
 import random
 import os
 from datetime import datetime
-from openpyxl import Workbook
 from collections import defaultdict
+import socket
+import sys
+from openpyxl import Workbook
 
 app = Flask(__name__)
-DATA_FILE = 'decision_data.json'
-
-def load_data():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {'history': []}
-
-def save_data(data):
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-data = load_data()
+app.secret_key = os.environ.get("SECRET_KEY", "replace_this_with_a_real_secret_key")
 
 @app.route('/')
 def index():
-    return render_template('index.html', history=data.get('history', []))
+    history = session.get('history', [])
+    return render_template('index.html', history=history)
 
 @app.route('/random', methods=['POST'])
 def do_random():
@@ -35,8 +26,9 @@ def do_random():
     result = random.choice(options)
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     record = f"[{ts}] 最终选择：{result}"
-    data['history'].append(record)
-    save_data(data)
+    history = session.get('history', [])
+    history.append(record)
+    session['history'] = history
     return jsonify({'result': result})
 
 @app.route('/custom', methods=['POST'])
@@ -70,8 +62,9 @@ def do_custom():
     full_summary = ", ".join(summary_parts)
     log = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 自定义随机 {times} 次：{full_summary}"
 
-    data['history'].append(log)
-    save_data(data)
+    history = session.get('history', [])
+    history.append(log)
+    session['history'] = history
 
     return jsonify({
         'display': display_text,
@@ -81,13 +74,13 @@ def do_custom():
 
 @app.route('/clear', methods=['POST'])
 def clear_history():
-    data['history'] = []
-    save_data(data)
+    session['history'] = []
     return jsonify({'ok': True})
 
 @app.route('/export')
 def export_history():
-    return '\n'.join(data.get('history', [])), 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    history = session.get('history', [])
+    return '\n'.join(history), 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 @app.route('/export_excel')
 def export_excel():
@@ -95,12 +88,25 @@ def export_excel():
     ws = wb.active
     ws.title = "历史记录"
     ws.append(["记录"])
-    for line in data.get('history', []):
+    history = session.get('history', [])
+    for line in history:
         ws.append([line])
     filename = "history.xlsx"
     wb.save(filename)
     return send_file(filename, as_attachment=True)
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    try:
+        port = int(os.environ.get("PORT", 5000))
+        host = '0.0.0.0'
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.bind((host, port))
+            except OSError:
+                print(f"Error: Port {port} is already in use.")
+                sys.exit(1)
+        app.run(debug=False, host=host, port=port)
+    except Exception as e:
+        print(f"Error starting Flask app: {e}")
+        sys.exit(1)

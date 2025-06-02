@@ -9,7 +9,8 @@
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h1 class="text-center mb-4">🎯 终极决策助手 Web 版</h1>
+    <h1 class="text-center mb-1">🎯 终极决策助手 Web 版</h1>
+    <p class="text-center text-muted">（历史记录仅保存在当前设备，数据互不共享）</p>
 
     <div class="mb-3">
       <textarea id="options" class="form-control" rows="6" placeholder="每行一个选项，支持 # 注释"></textarea>
@@ -32,7 +33,7 @@
 
     <canvas id="resultChart" height="200"></canvas>
 
-    <h5 class="mt-4">📜 历史记录：</h5>
+    <h5 class="mt-4">📜 当前设备历史记录：</h5>
     <div class="border p-3 bg-white" style="max-height: 300px; overflow-y: auto;">
       {% for line in history[::-1] %}
         <div class="border-bottom py-1 small">{{ line }}</div>
