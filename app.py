@@ -1,9 +1,11 @@
 # app.py - Web 版本终极决策助手 (Flask 后端)
-from flask import Flask, render_template, request, redirect, jsonify
+from flask import Flask, render_template, request, redirect, jsonify, send_file
 import json
 import random
 import os
 from datetime import datetime
+from openpyxl import Workbook
+from collections import defaultdict
 
 app = Flask(__name__)
 DATA_FILE = 'decision_data.json'
@@ -46,23 +48,36 @@ def do_custom():
     if len(options) < 2 or times < 1:
         return jsonify({'error': '请输入有效选项和次数'})
 
-    result_count = {opt: 0 for opt in options}
+    result_count = defaultdict(int)
     for _ in range(times):
         result = random.choice(options)
         result_count[result] += 1
 
-    max_count = max(result_count.values())
-    most_common = [k for k, v in result_count.items() if v == max_count]
+    # 分组统计：次数 -> [选项]
+    grouped = defaultdict(list)
+    for k, v in result_count.items():
+        grouped[v].append(k)
 
-    display_text = f"共随机 {times} 次，出现最多的是：\n" + "\n".join(f"{k}: {max_count} 次" for k in most_common)
+    sorted_counts = sorted(grouped.items(), reverse=True)
+    top_count = sorted_counts[0][0]
+    top_items = sorted(grouped[top_count])
+    display_text = f"共随机 {times} 次，出现最多的是：\n" + "\n".join(f"{item}: {top_count} 次" for item in top_items)
 
-    full_summary = ", ".join(f"{k}: {v}次" for k, v in result_count.items())
-    log = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 自定义随机 {times} 次：{full_summary} → 最多：{', '.join(most_common)} ({max_count}次)"
+    summary_parts = []
+    for count, items in sorted_counts:
+        for item in sorted(items):
+            summary_parts.append(f"{item}: {count}次")
+    full_summary = ", ".join(summary_parts)
+    log = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 自定义随机 {times} 次：{full_summary}"
 
     data['history'].append(log)
     save_data(data)
 
-    return jsonify({'display': display_text})
+    return jsonify({
+        'display': display_text,
+        'labels': list(result_count.keys()),
+        'values': list(result_count.values())
+    })
 
 @app.route('/clear', methods=['POST'])
 def clear_history():
@@ -73,6 +88,18 @@ def clear_history():
 @app.route('/export')
 def export_history():
     return '\n'.join(data.get('history', [])), 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
+@app.route('/export_excel')
+def export_excel():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "历史记录"
+    ws.append(["记录"])
+    for line in data.get('history', []):
+        ws.append([line])
+    filename = "history.xlsx"
+    wb.save(filename)
+    return send_file(filename, as_attachment=True)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
