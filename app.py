@@ -12,10 +12,42 @@ from openpyxl import Workbook
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "replace_this_with_a_real_secret_key")
 
+users_db = {}  # 简化用户数据库（仅用于演示）
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        if username in users_db and users_db[username]['password'] == password:
+            session['username'] = username
+            session['nickname'] = users_db[username]['nickname']
+            return redirect('/')
+        else:
+            return '用户名或密码错误！'
+    return render_template('login.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        nickname = request.form['nickname']
+        if username not in users_db:
+            users_db[username] = {'password': password, 'nickname': nickname}
+            session['username'] = username
+            session['nickname'] = nickname
+            return redirect('/')
+        else:
+            return '用户名已存在，请换一个！'
+    return render_template('signup.html')
+
 @app.route('/')
 def index():
+    if 'username' not in session:
+        return redirect('/login')
     history = session.get('history', [])
-    return render_template('index.html', history=history)
+    return render_template('index.html', history=history, username=session['username'], nickname=session['nickname'])
 
 @app.route('/random', methods=['POST'])
 def do_random():
@@ -45,7 +77,6 @@ def do_custom():
         result = random.choice(options)
         result_count[result] += 1
 
-    # 分组统计：次数 -> [选项]
     grouped = defaultdict(list)
     for k, v in result_count.items():
         grouped[v].append(k)
