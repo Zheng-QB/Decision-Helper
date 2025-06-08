@@ -20,7 +20,7 @@ def load_users():
         with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     return {
-        '0': {'password': 'yihan0326dhmaker', 'nickname': '管理员0', 'is_admin': True}
+        'admin': {'password': 'admin123', 'nickname': '管理员', 'is_admin': True}
     }
 
 # Save users data to the JSON file
