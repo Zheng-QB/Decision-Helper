@@ -1,4 +1,4 @@
-# app.py - Web 版本终极决策助手 (Flask 后端)
+
 from flask import Flask, render_template, request, redirect, jsonify, send_file, session
 import json
 import random
@@ -12,10 +12,23 @@ from openpyxl import Workbook
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "replace_this_with_a_real_secret_key")
 
-# 启动时内置管理员账号（仅开发者可在代码中定义）
-users_db = {
-    'admin': {'password': 'admin123', 'nickname': '管理员', 'is_admin': True}
-}
+USER_DATA_FILE = 'users.json'
+
+# Load users from the JSON file
+def load_users():
+    if os.path.exists(USER_DATA_FILE):
+        with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {
+        '0': {'password': 'yihan0326dhmaker', 'nickname': '管理员0', 'is_admin': True}
+    }
+
+# Save users data to the JSON file
+def save_users(users):
+    with open(USER_DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(users, f, ensure_ascii=False, indent=2)
+
+users_db = load_users()
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -39,6 +52,7 @@ def signup():
         nickname = request.form['nickname']
         if username not in users_db:
             users_db[username] = {'password': password, 'nickname': nickname, 'is_admin': False}
+            save_users(users_db)
             session['username'] = username
             session['nickname'] = nickname
             session['is_admin'] = False
@@ -67,7 +81,24 @@ def delete_user(username):
     if username == 'admin':
         return '无法删除管理员账号'
     users_db.pop(username, None)
+    save_users(users_db)
     return redirect('/admin')
+
+@app.route('/create_admin', methods=['GET', 'POST'])
+def create_admin():
+    if not session.get('is_admin'):
+        return '权限不足！'
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        nickname = request.form['nickname']
+        if username not in users_db:
+            users_db[username] = {'password': password, 'nickname': nickname, 'is_admin': True}
+            save_users(users_db)
+            return redirect('/admin')
+        else:
+            return '用户名已存在！'
+    return render_template('create_admin.html')
 
 @app.route('/random', methods=['POST'])
 def do_random():
