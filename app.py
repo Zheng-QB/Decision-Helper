@@ -12,7 +12,10 @@ from openpyxl import Workbook
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "replace_this_with_a_real_secret_key")
 
-users_db = {}  # 简化用户数据库（仅用于演示）
+# 启动时内置管理员账号（仅开发者可在代码中定义）
+users_db = {
+    'admin': {'password': 'admin123', 'nickname': '管理员', 'is_admin': True}
+}
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -22,6 +25,7 @@ def login():
         if username in users_db and users_db[username]['password'] == password:
             session['username'] = username
             session['nickname'] = users_db[username]['nickname']
+            session['is_admin'] = users_db[username].get('is_admin', False)
             return redirect('/')
         else:
             return '用户名或密码错误！'
@@ -34,9 +38,10 @@ def signup():
         password = request.form['password']
         nickname = request.form['nickname']
         if username not in users_db:
-            users_db[username] = {'password': password, 'nickname': nickname}
+            users_db[username] = {'password': password, 'nickname': nickname, 'is_admin': False}
             session['username'] = username
             session['nickname'] = nickname
+            session['is_admin'] = False
             return redirect('/')
         else:
             return '用户名已存在，请换一个！'
@@ -47,7 +52,22 @@ def index():
     if 'username' not in session:
         return redirect('/login')
     history = session.get('history', [])
-    return render_template('index.html', history=history, username=session['username'], nickname=session['nickname'])
+    return render_template('index.html', history=history, username=session['username'], nickname=session['nickname'], is_admin=session.get('is_admin', False))
+
+@app.route('/admin')
+def admin_panel():
+    if not session.get('is_admin'):
+        return '权限不足！'
+    return render_template('admin.html', users=users_db)
+
+@app.route('/delete_user/<username>', methods=['POST'])
+def delete_user(username):
+    if not session.get('is_admin'):
+        return '权限不足！'
+    if username == 'admin':
+        return '无法删除管理员账号'
+    users_db.pop(username, None)
+    return redirect('/admin')
 
 @app.route('/random', methods=['POST'])
 def do_random():
